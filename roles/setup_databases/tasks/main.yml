@@ -1,0 +1,29 @@
+---
+- apt_repository:
+    repo: deb http://apt.postgresql.org/pub/repos/apt/ 'lsb_release -cs' -pgdg main
+    state: present
+
+- name: install packages
+  apt:
+    name:
+      #- mysql-server
+      - postgresql
+      - postgresql-contrib
+      - python3
+      - python3-pip
+      - libpq-dev
+      - python-psycopg2
+    state: present
+    update_cache: yes
+  register: apt_status
+  until:  apt_status is success
+  delay: 60
+  retries: 10
+
+#- name: pip install
+#  pip:
+#    name: pymysql
+
+#- name: Collect all possible information using passwordless root access
+#  mysql_info:
+#    login_user: root

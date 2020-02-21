@@ -1,0 +1,91 @@
+---
+- name: facts
+  setup:
+    gather_subset:
+      - virtual
+  register: facts
+
+- name: have dependancies installed
+  apt:
+    name:
+      - apt-transport-https
+      - docker.io
+    state: present
+    update_cache: yes
+  register: apt_status
+  until:  apt_status is success
+  delay: 60
+  retries: 10
+
+- apt_repository:
+    repo: deb http://apt.kubernetes.io/ kubernetes-{{facts.ansible_facts.ansible_distribution_release}} main
+    state: present
+
+- name: have dependancies installed
+  apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+  register: apt_status
+  until:  apt_status is success
+  delay: 60
+  retries: 10
+
+- name: check if k8s exists
+  stat:
+    path: "{{ k8s_path }}/k8s"
+  register: k8s_result
+
+- name: find latest k8s version
+  uri:
+    url: "{{ k8s_versions }}"
+    return_content: yes
+  register: versions
+  when: "{{ k8s_result.stat.exists }} == false"
+
+- set_fact: latest_version="{{ versions.content | regex_findall('<a href=\\\"\/k8s\/(.*)[\+\-].*\/\\\">k8s_') | first }}"
+  when: "{{ k8s_result.stat.exists }} == false"
+
+- name: download latest k8s binary
+  get_url:
+    url: "{{ k8s_versions }}{{ latest_version }}/k8s_{{ latest_version }}_linux_amd64.zip"
+    dest: "/tmp/"
+    mode: '0755'
+  when: "{{ k8s_result.stat.exists }} == false"
+
+- name: unzip k8s binary
+  unarchive:
+    src: "/tmp/k8s_{{ latest_version }}_linux_amd64.zip"
+    dest: "{{ k8s_path }}"
+    remote_src: yes
+  when: "{{ k8s_result.stat.exists }} == false"
+
+- name: delete k8s zip
+  file:
+    path: "/tmp/k8s_{{ latest_version }}_linux_amd64.zip"
+    state: absent
+  when: "{{ k8s_result.stat.exists }} == false"
+
+- name: check if k8s exists now
+  stat:
+    path: "{{ k8s_path }}/k8s"
+  register: k8s_result_new
+  when: "{{ k8s_result.stat.exists }} == false"
+
+#- name: add to PATH
+#  shell: echo $PATH="$PATH:{{ k8s_path }}"
+#  when: "{{ k8s_result.stat.exists }} == false"
+
+- name: set cap_ipc_lock=+ep on k8s
+  capabilities:
+    path: "{{ k8s_path }}k8s"
+    capability: cap_ipc_lock=+ep
+    state: present
+
+- name: add k8s user
+  user:
+    home: /etc/k8s.d
+    name: k8s
+    shell: /bin/false
+    system: yes

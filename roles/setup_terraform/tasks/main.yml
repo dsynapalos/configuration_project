@@ -1,0 +1,44 @@
+---
+- name: check if terraform exists
+  stat:
+    path: "{{ terraform_directory }}/terraform"
+  register: terraform_result
+
+- name: find latest terraform version
+  uri:
+    url: "{{ terraform_versions }}"
+    return_content: yes
+  register: versions
+  when: "{{ terraform_result.stat.exists }} == false"
+
+- set_fact: latest_version="{{ versions.content | regex_findall('<a href=\\\"\/terraform\/(.*)\/\\\">terraform_') | first }}"
+  when: "{{ terraform_result.stat.exists }} == false"
+
+- name: download latest terraform binary
+  get_url:
+    url: "{{ terraform_versions }}{{ latest_version }}/terraform_{{ latest_version }}_linux_amd64.zip"
+    dest: "{{ terraform_directory }}"
+  when: "{{ terraform_result.stat.exists }} == false"
+
+- name: unzip terraform binary
+  unarchive:
+    src: "{{ terraform_directory }}/terraform_{{ latest_version }}_linux_amd64.zip"
+    dest: "{{ terraform_directory }}/"
+  when: "{{ terraform_result.stat.exists }} == false"
+
+- name: delete terraform zip
+  file:
+    path: "{{ terraform_directory }}/terraform_{{ latest_version }}_linux_amd64.zip"
+    state: absent
+  when: "{{ terraform_result.stat.exists }} == false"
+
+- name: check if terraform exists now
+  stat:
+    path: "{{ terraform_directory }}/terraform"
+  register: terraform_result_new
+
+#- name: add terraform binary to PATH
+#  command:
+#    dest: /etc/profile.d/custom-path.sh
+#    content: '$PATH=$PATH:{{ inventory_dir }}/terraform'
+#  when: "{{ terraform_result_new.stat.exists }} == true"

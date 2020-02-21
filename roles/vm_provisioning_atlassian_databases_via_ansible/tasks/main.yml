@@ -1,0 +1,43 @@
+---
+- name: Create Jira DB virtual machine from a template
+  vmware_guest:
+    datacenter: "{{ datacenter_name }}"
+    hostname: "{{ vcenter_server }}"
+    username: "{{ vcenter_user }}"
+    password: "{{ vcenter_pass }}"
+    esxi_hostname: "{{ esxilab }}"
+    validate_certs: no
+    folder: /
+    name: Test_db_server
+    template: "{{ template_name }}"
+    wait_for_ip_address: yes
+    hardware:
+      memory_mb: "{{ db_memories }}"
+      num_cpus: "{{ db_cpus }}"
+    networks:
+      - name: "{{ network_name }}"
+        start_connected: true
+    state: poweredon
+  delegate_to: localhost
+  register: deploy_db
+  until: deploy_db is success
+  delay: 60
+  retries: 10
+
+- set_fact: db_ipv4="{{ deploy_db.instance.ipv4 }}"
+
+- name: add databases ip to hosts file
+  lineinfile:
+    path: /etc/hosts
+    regexp: '.* {{ item.host_name }}$'
+    line: '{{ item.ip_address }} {{ item.host_name }}'
+    state: present
+  with_items:
+    - { ip_address: "{{ db_ipv4 }}", host_name: database }
+
+- name: copy ssh key to db
+  shell: ssh-copy-id {{ template_user }}@database
+  register: result
+  until: result.rc == 0
+  delay: 60
+  retries: 10

@@ -1,0 +1,45 @@
+---
+- name: Create k8s virtual machine from a template
+  vmware_guest:
+
+    datacenter: "{{ datacenter_name }}"
+    hostname: "{{ vcenter_server }}"
+    username: "{{ vcenter_user }}"
+    password: "{{ vcenter_pass }}"
+    esxi_hostname: "{{ esxilab }}"
+    validate_certs: no
+    folder: /
+    name: k8s_server
+    template: "{{ template_name }}"
+    wait_for_ip_address: yes
+    hardware:
+      memory_mb: "{{ k8s_memories }}"
+      num_cpus: "{{ k8s_cpus }}"
+    networks:
+      - name: "{{ network_name }}"
+        start_connected: true
+    state: poweredon
+  delegate_to: localhost
+  register: deploy_k8s
+  until: deploy_k8s is success
+  delay: 60
+  retries: 10
+
+
+- set_fact: k8s_ipv4="{{ deploy_k8s.instance.ipv4 }}"
+
+- name: add k8s ip to hosts file
+  lineinfile:
+    path: /etc/hosts
+    regexp: '.* {{ item.host_name }}$'
+    line: '{{ item.ip_address }} {{ item.host_name }}'
+    state: present
+  with_items:
+    - { ip_address: "{{ k8s_ipv4 }}", host_name: k8s }
+
+- name: copy ssh key to app
+  shell: ssh-copy-id -o StrictHostKeyChecking=no {{ template_user }}@k8s
+  register: result
+  until: result.rc == 0
+  delay: 60
+  retries: 10

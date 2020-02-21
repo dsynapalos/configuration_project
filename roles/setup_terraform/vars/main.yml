@@ -1,0 +1,3 @@
+---
+terraform_versions: https://releases.hashicorp.com/terraform/
+terraform_directory: /usr/bin

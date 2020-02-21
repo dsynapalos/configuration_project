@@ -1,0 +1,8 @@
+[ansible_host]
+localhost ansible_connection=local ansible_python_interpreter=/usr/bin/python3
+
+[ubuntu_servers]
+application
+database
+vault
+k8s

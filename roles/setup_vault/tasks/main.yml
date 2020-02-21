@@ -1,0 +1,74 @@
+---
+- name: Change file ownership, group and permissions
+  file:
+    path: "{{ vault_path }}"
+    state: directory
+    mode: '0755'
+
+- name: have unzip installed
+  apt:
+    name: unzip
+    state: present
+    update_cache: yes
+  register: apt_status
+  until:  apt_status is success
+  delay: 60
+  retries: 10
+
+- name: check if vault exists
+  stat:
+    path: "{{ vault_path }}/vault"
+  register: vault_result
+
+- name: find latest vault version
+  uri:
+    url: "{{ vault_versions }}"
+    return_content: yes
+  register: versions
+  when: "{{ vault_result.stat.exists }} == false"
+
+- set_fact: latest_version="{{ versions.content | regex_findall('<a href=\\\"\/vault\/(.*)[\+\-].*\/\\\">vault_') | first }}"
+  when: "{{ vault_result.stat.exists }} == false"
+
+- name: download latest vault binary
+  get_url:
+    url: "{{ vault_versions }}{{ latest_version }}/vault_{{ latest_version }}_linux_amd64.zip"
+    dest: "/tmp/"
+    mode: '0755'
+  when: "{{ vault_result.stat.exists }} == false"
+
+- name: unzip vault binary
+  unarchive:
+    src: "/tmp/vault_{{ latest_version }}_linux_amd64.zip"
+    dest: "{{ vault_path }}"
+    remote_src: yes
+  when: "{{ vault_result.stat.exists }} == false"
+
+- name: delete vault zip
+  file:
+    path: "/tmp/vault_{{ latest_version }}_linux_amd64.zip"
+    state: absent
+  when: "{{ vault_result.stat.exists }} == false"
+
+- name: check if vault exists now
+  stat:
+    path: "{{ vault_path }}/vault"
+  register: vault_result_new
+  when: "{{ vault_result.stat.exists }} == false"
+
+#- name: add to PATH
+#  shell: echo $PATH="$PATH:{{ vault_path }}"
+#  when: "{{ vault_result.stat.exists }} == false"
+
+- name: set cap_ipc_lock=+ep on vault
+  capabilities:
+    path: "{{ vault_path }}vault"
+    capability: cap_ipc_lock=+ep
+    state: present
+
+- name: add vault user
+  user:
+    home: /etc/vault.d
+    name: vault
+    shell: /bin/false
+    system: yes

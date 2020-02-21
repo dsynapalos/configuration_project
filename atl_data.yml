@@ -1,0 +1,12 @@
+---
+- hosts: ansible_host
+  become: true
+  gather_facts: false
+  roles:
+    - role: vm_provisioning_atlassian_databases_via_ansible
+
+- hosts: database
+  become: true
+  gather_facts: false
+  roles:
+    - role: setup_databases

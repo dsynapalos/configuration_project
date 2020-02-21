@@ -1,0 +1,5 @@
+---
+vcenter_user: ""
+vcenter_pass: ""
+vcenter_server: ""
+host_become_password: ""

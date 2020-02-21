@@ -1,0 +1,3 @@
+---
+vault_versions: https://releases.hashicorp.com/vault/
+vault_path: /usr/bin/

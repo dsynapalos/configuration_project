@@ -1,0 +1,10 @@
+---
+template_user: 
+datacenter_name:
+template_name:
+datastore:
+network_name:
+esxilab:
+cluster:
+k8s_cpus:
+k8s_memories:

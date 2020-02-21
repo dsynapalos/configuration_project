@@ -1,0 +1,45 @@
+---
+- name: Create Vault virtual machine from a template
+  vmware_guest:
+
+    datacenter: "{{ datacenter_name }}"
+    hostname: "{{ vcenter_server }}"
+    username: "{{ vcenter_user }}"
+    password: "{{ vcenter_pass }}"
+    esxi_hostname: "{{ esxilab }}"
+    validate_certs: no
+    folder: /
+    name: Vault_server
+    template: "{{ template_name }}"
+    wait_for_ip_address: yes
+    hardware:
+      memory_mb: "{{ vault_memories }}"
+      num_cpus: "{{ vault_cpus }}"
+    networks:
+      - name: "{{ network_name }}"
+        start_connected: true
+    state: poweredon
+  delegate_to: localhost
+  register: deploy_vault
+  until: deploy_vault is success
+  delay: 60
+  retries: 10
+
+
+- set_fact: vault_ipv4="{{ deploy_vault.instance.ipv4 }}"
+
+- name: add vault ip to hosts file
+  lineinfile:
+    path: /etc/hosts
+    regexp: '.* {{ item.host_name }}$'
+    line: '{{ item.ip_address }} {{ item.host_name }}'
+    state: present
+  with_items:
+    - { ip_address: "{{ vault_ipv4 }}", host_name: vault }
+
+- name: copy ssh key to app
+  shell: echo {{ host_become_password }} | ssh-copy-id -o StrictHostKeyChecking=no {{ template_user }}@vault
+  register: result
+  until: result.rc == 0
+  delay: 60
+  retries: 10
